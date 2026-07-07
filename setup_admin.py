@@ -71,18 +71,26 @@ MASTER_PASSWORD  = "LaPosada2024!"
 # Organizations and their demo admins
 ORGS = [
     {
-        "name":      "La Posada de Jesús",
-        "color":     "#0066CC",
+        "name":       "La Posada de Jesús",
+        "color":      "#0066CC",
         "demo_email": "posada@demo.com",
         "demo_name":  "Admin Posada",
         "demo_pass":  "Posada2024!",
+        # Optional second user (regular role)
+        "user_email": "posada2@demo.com",
+        "user_name":  "Usuario Posada",
+        "user_pass":  "Posada2024!",
     },
     {
-        "name":      "Hogar Bambi",
-        "color":     "#E05C00",
+        "name":       "Hogar Bambi",
+        "color":      "#E05C00",
         "demo_email": "bambi@demo.com",
         "demo_name":  "Admin Bambi",
         "demo_pass":  "Bambi2024!",
+        # Optional second user (regular role)
+        "user_email": "bambi2@demo.com",
+        "user_name":  "Usuario Bambi",
+        "user_pass":  "Bambi2024!",
     },
 ]
 
@@ -219,6 +227,15 @@ def main() -> None:
             oid,
             "Admin",
         )
+        if org_cfg.get("user_email"):
+            _ensure_user(
+                db,
+                org_cfg["user_email"],
+                org_cfg["user_name"],
+                org_cfg["user_pass"],
+                oid,
+                "Usuario",
+            )
         print()
 
     # 4. Master user (belongs to La Posada, but has cross-org view)
@@ -231,9 +248,11 @@ def main() -> None:
     print("✅  Todo listo. Credenciales de acceso:")
     print("=" * 55)
     _box([
-        f"Master : {MASTER_EMAIL}  /  {MASTER_PASSWORD}",
-        f"Posada : posada@demo.com  /  Posada2024!",
-        f"Bambi  : bambi@demo.com   /  Bambi2024!",
+        f"Master  : {MASTER_EMAIL}  /  {MASTER_PASSWORD}",
+        f"Posada  : posada@demo.com   /  Posada2024!  (Admin)",
+        f"Posada2 : posada2@demo.com  /  Posada2024!  (Usuario)",
+        f"Bambi   : bambi@demo.com    /  Bambi2024!   (Admin)",
+        f"Bambi2  : bambi2@demo.com   /  Bambi2024!   (Usuario)",
         "",
         "⚠️  Cambia la contraseña master en tu primer login.",
     ])

@@ -123,16 +123,27 @@ with st.sidebar:
     org = current_org_name() or ""
     role = st.session_state.get("user_role", "")
 
-    st.markdown(f"👤 **{user_name}**")
-    if org:
-        st.caption(f"🏢 {org}")
-    if role:
-        badge_color = get_role_badge_color(role, current_org_settings())
+    badge_color = get_role_badge_color(role, current_org_settings())
+
+    if is_master():
+        # Master: compact one-liner — org is already shown in the switcher below
         st.markdown(
-            f'<span style="background:{badge_color};color:#fff;padding:2px 10px;'
-            f'border-radius:12px;font-size:0.78rem;font-weight:600;">{role}</span>',
+            f'👤 **{user_name}** &nbsp;'
+            f'<span style="background:{badge_color};color:#fff;padding:2px 8px;'
+            f'border-radius:12px;font-size:0.75rem;font-weight:600;">{role}</span>',
             unsafe_allow_html=True,
         )
+    else:
+        # Regular Admin / Usuario: show name, org, and badge
+        st.markdown(f"👤 **{user_name}**")
+        if org:
+            st.caption(f"🏢 {org}")
+        if role:
+            st.markdown(
+                f'<span style="background:{badge_color};color:#fff;padding:2px 10px;'
+                f'border-radius:12px;font-size:0.78rem;font-weight:600;">{role}</span>',
+                unsafe_allow_html=True,
+            )
 
     # ── Org switcher (Master users only) ──────────────────────────────────────
     if is_master():
