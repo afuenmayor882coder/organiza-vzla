@@ -19,15 +19,24 @@ from db.finance_repo import (
     list_transactions,
 )
 from db.accounts_repo import get_account_display_options
-from utils.auth import current_org_id, current_user_email
+from utils.auth import current_active_org_id, current_user_email
 from utils.classifier import suggest_financial, confidence_icon
 from utils.constants import CURRENCIES, FLOW_DIRECTIONS, NIIF_CATEGORIES
 from utils.formatters import format_currency, format_date
 from utils.niif import classify_description
 from utils.validators import validate_transaction_form
 
-org_id = current_org_id()
+org_id = current_active_org_id()
 user = current_user_email() or "system"
+
+if org_id is None:
+    st.header("💰 Flujo de Caja")
+    st.warning(
+        "⚠️ Selecciona una organización específica en el panel izquierdo "
+        "para poder registrar transacciones financieras.",
+        icon="🔀",
+    )
+    st.stop()
 
 st.header("💰 Flujo de Caja")
 st.caption("Registra los movimientos de dinero siguiendo la clasificación NIIF (IFRS).")

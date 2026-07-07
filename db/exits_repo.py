@@ -45,12 +45,14 @@ def add_exit(
 
 
 def list_exits(
-    org_id: str,
+    org_id: str | None,
     limit: int = 50,
     category: str | None = None,
     recipient: str | None = None,
 ) -> list[dict]:
-    query: dict = {"org_id": org_id}
+    query: dict = {}
+    if org_id:
+        query["org_id"] = org_id
     if category:
         query["category"] = category
     if recipient:

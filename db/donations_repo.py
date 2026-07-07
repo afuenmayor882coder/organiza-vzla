@@ -45,12 +45,14 @@ def add_donation(
 
 
 def list_donations(
-    org_id: str,
+    org_id: str | None,
     limit: int = 50,
     category: str | None = None,
     donor: str | None = None,
 ) -> list[dict]:
-    query: dict = {"org_id": org_id}
+    query: dict = {}
+    if org_id:
+        query["org_id"] = org_id
     if category:
         query["category"] = category
     if donor:
@@ -63,12 +65,13 @@ def list_donations(
     )
 
 
-def count_donations_this_month(org_id: str) -> int:
+def count_donations_this_month(org_id: str | None) -> int:
     now = datetime.now(timezone.utc)
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    return get_db()["donation_entries"].count_documents(
-        {"org_id": org_id, "date": {"$gte": start_of_month}}
-    )
+    query: dict = {"date": {"$gte": start_of_month}}
+    if org_id:
+        query["org_id"] = org_id
+    return get_db()["donation_entries"].count_documents(query)
 
 
 def get_donations_in_range(org_id: str, start: datetime, end: datetime) -> list[dict]:

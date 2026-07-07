@@ -19,7 +19,14 @@ from db.accounts_repo import (
     account_code_exists,
     seed_default_accounts,
 )
-from utils.auth import current_org_id, current_user_email, is_admin, reload_org_settings
+from utils.auth import (
+    current_org_id,
+    current_active_org_id,
+    current_user_email,
+    is_admin,
+    is_master,
+    reload_org_settings,
+)
 from utils.constants import USER_ROLES, CURRENCIES
 from utils.formatters import format_date
 from utils.validators import validate_email, validate_required_text
@@ -29,7 +36,9 @@ if not is_admin():
     st.error("🔒 Acceso denegado. Esta página es solo para Administradores.")
     st.stop()
 
-org_id = current_org_id()
+# For Usuarios page, always operate on the org currently selected in the switcher.
+# Falls back to the user's own org if none is selected (master all-orgs view).
+org_id = current_active_org_id() or current_org_id()
 admin_email = current_user_email() or "system"
 
 st.header("👥 Gestión de Usuarios y Configuración")

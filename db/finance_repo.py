@@ -63,12 +63,14 @@ def add_transactions_batch(org_id: str, rows: list[dict], user: str = "system") 
 
 
 def list_transactions(
-    org_id: str,
+    org_id: str | None,
     limit: int = 100,
     direction: str | None = None,
     niif_category: str | None = None,
 ) -> list[dict]:
-    query: dict = {"org_id": org_id}
+    query: dict = {}
+    if org_id:
+        query["org_id"] = org_id
     if direction:
         query["direction"] = direction
     if niif_category:
@@ -82,18 +84,20 @@ def list_transactions(
 
 
 def get_transactions_in_range(
-    org_id: str, start: datetime, end: datetime
+    org_id: str | None, start: datetime, end: datetime
 ) -> list[dict]:
-    return list(
-        get_db()["financial_ledger"]
-        .find({"org_id": org_id, "date": {"$gte": start, "$lte": end}}, {"_id": 0})
-        .sort("date", -1)
-    )
+    query: dict = {"date": {"$gte": start, "$lte": end}}
+    if org_id:
+        query["org_id"] = org_id
+    return list(get_db()["financial_ledger"].find(query, {"_id": 0}).sort("date", -1))
 
 
-def get_cash_balance(org_id: str) -> float:
+def get_cash_balance(org_id: str | None) -> float:
+    match_stage: dict = {}
+    if org_id:
+        match_stage["org_id"] = org_id
     pipeline = [
-        {"$match": {"org_id": org_id}},
+        {"$match": match_stage},
         {
             "$group": {
                 "_id": "$direction",
@@ -105,9 +109,11 @@ def get_cash_balance(org_id: str) -> float:
     return results.get("Ingreso", 0.0) - results.get("Egreso", 0.0)
 
 
-def get_niif_summary(org_id: str, start: datetime | None = None, end: datetime | None = None) -> dict:
+def get_niif_summary(org_id: str | None, start: datetime | None = None, end: datetime | None = None) -> dict:
     """Returns net totals per NIIF category: {category: net_amount}."""
-    match_stage: dict = {"org_id": org_id}
+    match_stage: dict = {}
+    if org_id:
+        match_stage["org_id"] = org_id
     if start and end:
         match_stage["date"] = {"$gte": start, "$lte": end}
 

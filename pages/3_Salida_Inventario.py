@@ -9,15 +9,23 @@ import streamlit as st
 
 from db.exits_repo import add_exit, list_exits
 from db.inventory_repo import get_stock, upsert_stock
-from utils.auth import current_org_id, current_user_email
+from utils.auth import current_active_org_id, current_user_email
 from utils.constants import EXIT_REASONS
 from utils.formatters import format_date
 from utils.validators import validate_exit_form
 
-org_id = current_org_id()
+org_id = current_active_org_id()
 user = current_user_email() or "system"
 
 st.header("📤 Salida de Inventario")
+
+if org_id is None:
+    st.warning(
+        "⚠️ Selecciona una organización específica en el panel izquierdo "
+        "para poder registrar salidas de inventario.",
+        icon="🔀",
+    )
+    st.stop()
 st.caption("Registra los artículos que salen del inventario hacia los beneficiarios.")
 
 # ── Load items that have stock available ──────────────────────────────────────

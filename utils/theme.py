@@ -39,7 +39,17 @@ def apply_org_theme() -> None:
     """
     Inject CSS overrides based on the logged-in org's brand colors.
     Call this in app.py after the auth gate, so it runs on every page.
+
+    Master users viewing "all orgs" (active_org_id = None) keep the
+    default blue/white theme with no CSS override applied.
     """
+    role = st.session_state.get("user_role", "")
+    active_org = st.session_state.get("active_org_id")
+
+    # Master with no specific org selected → stay with default blue, no override
+    if role == "Master" and active_org is None:
+        return
+
     settings = st.session_state.get("org_settings") or {}
     primary   = settings.get("primary_color", "#0066CC")
     secondary = settings.get("secondary_color", "") or _lighten(primary)

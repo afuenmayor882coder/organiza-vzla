@@ -24,11 +24,11 @@ from db.inventory_repo import (
     get_stock,
     get_zero_stock_items,
 )
-from utils.auth import current_org_id, current_org_name, current_org_settings
+from utils.auth import current_active_org_id, current_org_name, current_org_settings, is_master
 from utils.constants import NIIF_CATEGORIES
 from utils.formatters import format_currency, format_date
 
-org_id = current_org_id()
+org_id = current_active_org_id()
 org    = current_org_name() or ""
 
 # Read org-level thresholds from settings (falls back to defaults)
@@ -38,6 +38,8 @@ EXPIRATION_WARN_DAYS   = int(_settings.get("expiration_warning_days", 30))
 ORG_PRIMARY_COLOR      = _settings.get("primary_color", "#0066CC")
 
 st.header("📊 Panel de Control")
+if is_master() and org_id is None:
+    st.caption("🌐 Vista consolidada — todas las organizaciones")
 st.caption(f"Vista general del estado de {org}.")
 
 # ── Time period selector ──────────────────────────────────────────────────────

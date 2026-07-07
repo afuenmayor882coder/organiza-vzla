@@ -14,7 +14,7 @@ import streamlit as st
 
 from db.donations_repo import add_donation, list_donations
 from db.inventory_repo import add_catalog_item, list_catalog_items, upsert_stock
-from utils.auth import current_org_id, current_user_email
+from utils.auth import current_active_org_id, current_user_email, is_master
 from utils.classifier import suggest_donation, confidence_icon
 from utils.constants import (
     CATEGORIES_WITH_EXPIRATION,
@@ -24,10 +24,18 @@ from utils.constants import (
 from utils.formatters import format_date
 from utils.validators import validate_donation_form
 
-org_id = current_org_id()
+org_id = current_active_org_id()
 user = current_user_email() or "system"
 
 st.header("📥 Registro de Donaciones")
+
+if org_id is None:
+    st.warning(
+        "⚠️ Selecciona una organización específica en el panel izquierdo "
+        "para poder registrar donaciones.",
+        icon="🔀",
+    )
+    st.stop()
 st.caption("Registra los artículos que recibe la organización (inventario entrante).")
 
 # ── Load catalog once (used in all tabs and the history table) ────────────────

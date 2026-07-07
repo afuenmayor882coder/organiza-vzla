@@ -155,6 +155,9 @@ STAKEHOLDER_TYPES: list[str] = [
 # ---------------------------------------------------------------------------
 USER_ROLES: list[str] = ["Admin", "Usuario"]
 
+# Master sits above Admin — can view data from all organizations and switch between them
+ALL_ROLES: list[str] = ["Master", "Admin", "Usuario"]
+
 # ---------------------------------------------------------------------------
 # NIIF Chart of Accounts (Plan de Cuentas)
 # Preset accounts seeded for every new organization.

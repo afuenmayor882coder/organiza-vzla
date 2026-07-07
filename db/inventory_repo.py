@@ -41,8 +41,10 @@ def add_catalog_item(
     return item_id
 
 
-def list_catalog_items(org_id: str, active_only: bool = True) -> list[dict]:
-    query: dict = {"org_id": org_id}
+def list_catalog_items(org_id: str | None, active_only: bool = True) -> list[dict]:
+    query: dict = {}
+    if org_id:
+        query["org_id"] = org_id
     if active_only:
         query["is_active"] = True
     return list(get_db()["item_catalog"].find(query, {"_id": 0}))
@@ -109,10 +111,13 @@ def upsert_stock(
         log_action(org_id, "create", "inventory_master", item_id, user=user)
 
 
-def get_stock(org_id: str) -> list[dict]:
+def get_stock(org_id: str | None) -> list[dict]:
+    query: dict = {}
+    if org_id:
+        query["org_id"] = org_id
     return list(
         get_db()["inventory_master"]
-        .find({"org_id": org_id}, {"_id": 0})
+        .find(query, {"_id": 0})
         .sort("current_stock", 1)
     )
 
@@ -124,35 +129,28 @@ def get_stock_for_item(org_id: str, item_id: str) -> int:
     return doc["current_stock"] if doc else 0
 
 
-def get_expiring_items(org_id: str, within_days: int = 30) -> list[dict]:
+def get_expiring_items(org_id: str | None, within_days: int = 30) -> list[dict]:
     from datetime import timedelta
 
     cutoff = datetime.now(timezone.utc) + timedelta(days=within_days)
-    return list(
-        get_db()["inventory_master"].find(
-            {
-                "org_id": org_id,
-                "expiration_date": {"$ne": None, "$lte": cutoff},
-                "current_stock": {"$gt": 0},
-            },
-            {"_id": 0},
-        )
-    )
+    query: dict = {
+        "expiration_date": {"$ne": None, "$lte": cutoff},
+        "current_stock": {"$gt": 0},
+    }
+    if org_id:
+        query["org_id"] = org_id
+    return list(get_db()["inventory_master"].find(query, {"_id": 0}))
 
 
-def get_low_stock_items(org_id: str, threshold: int = 10) -> list[dict]:
-    return list(
-        get_db()["inventory_master"].find(
-            {"org_id": org_id, "current_stock": {"$lte": threshold, "$gt": 0}},
-            {"_id": 0},
-        )
-    )
+def get_low_stock_items(org_id: str | None, threshold: int = 10) -> list[dict]:
+    query: dict = {"current_stock": {"$lte": threshold, "$gt": 0}}
+    if org_id:
+        query["org_id"] = org_id
+    return list(get_db()["inventory_master"].find(query, {"_id": 0}))
 
 
-def get_zero_stock_items(org_id: str) -> list[dict]:
-    return list(
-        get_db()["inventory_master"].find(
-            {"org_id": org_id, "current_stock": {"$lte": 0}},
-            {"_id": 0},
-        )
-    )
+def get_zero_stock_items(org_id: str | None) -> list[dict]:
+    query: dict = {"current_stock": {"$lte": 0}}
+    if org_id:
+        query["org_id"] = org_id
+    return list(get_db()["inventory_master"].find(query, {"_id": 0}))

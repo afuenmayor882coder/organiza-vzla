@@ -14,9 +14,12 @@ from utils.auth import (
     logout,
     require_auth,
     is_admin,
+    is_master,
     current_user_name,
     current_org_name,
     current_org_settings,
+    set_active_org_id,
+    current_active_org_id,
 )
 from db.connection import is_test_mode
 from utils.theme import apply_org_theme, get_role_badge_color
@@ -131,6 +134,50 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
+    # ── Org switcher (Master users only) ──────────────────────────────────────
+    if is_master():
+        st.divider()
+        st.caption("🔀 Vista de organización")
+        try:
+            from db.auth_repo import list_organizations, get_org_settings as _get_settings
+            all_orgs = list_organizations()
+            org_options = ["🌐 Todas las organizaciones"] + [o["name"] for o in all_orgs]
+
+            # Find current selection index
+            current_active = current_active_org_id()
+            if current_active is None:
+                current_idx = 0
+            else:
+                matched = next(
+                    (i + 1 for i, o in enumerate(all_orgs) if o["org_id"] == current_active),
+                    0,
+                )
+                current_idx = matched
+
+            selected = st.selectbox(
+                "Organización activa",
+                org_options,
+                index=current_idx,
+                label_visibility="collapsed",
+                key="master_org_picker",
+            )
+
+            # Sync active_org_id when selection changes
+            if selected == "🌐 Todas las organizaciones":
+                new_active_id = None
+                new_settings = {}
+            else:
+                chosen_org = next(o for o in all_orgs if o["name"] == selected)
+                new_active_id = chosen_org["org_id"]
+                new_settings = _get_settings(new_active_id)
+
+            if new_active_id != current_active:
+                set_active_org_id(new_active_id, new_settings)
+                st.rerun()
+
+        except Exception:
+            pass
+
     st.divider()
 
     if st.button("Cerrar Sesión", use_container_width=True):
@@ -149,7 +196,7 @@ _pages = [
     st.Page("pages/6_Catalogo_Articulos.py",  title="Catálogo",         icon="📋"),
 ]
 
-if is_admin():
+if is_admin():  # is_admin() returns True for both Admin and Master roles
     _pages.append(
         st.Page("pages/7_Usuarios.py", title="Usuarios", icon="👥")
     )

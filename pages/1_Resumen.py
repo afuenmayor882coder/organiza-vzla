@@ -15,7 +15,7 @@ import streamlit as st
 from db.donations_repo import count_donations_this_month
 from db.finance_repo import get_cash_balance
 from db.inventory_repo import get_expiring_items, get_stock
-from utils.auth import current_org_id, current_org_name, current_user_name
+from utils.auth import current_active_org_id, current_org_name, current_user_name
 from utils.formatters import format_date
 
 # ── Spanish date helpers ───────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ def _fecha_es(dt: datetime) -> str:
 
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-org_id = current_org_id()
+org_id = current_active_org_id()
 user_name = current_user_name() or "Usuario"
 org = current_org_name() or ""
 now = datetime.now()

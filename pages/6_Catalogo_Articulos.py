@@ -17,15 +17,24 @@ from db.inventory_repo import (
     deactivate_catalog_item,
     list_catalog_items,
 )
-from utils.auth import current_org_id, current_user_email
+from utils.auth import current_active_org_id, current_user_email
 from utils.constants import (
     CATEGORIES_WITH_EXPIRATION,
     DONATION_CATEGORIES,
     PACKAGING_FORMATS,
 )
 
-org_id = current_org_id()
+org_id = current_active_org_id()
 user = current_user_email() or "system"
+
+if org_id is None:
+    st.header("📋 Catálogo de Artículos")
+    st.warning(
+        "⚠️ Selecciona una organización específica en el panel izquierdo "
+        "para gestionar el catálogo.",
+        icon="🔀",
+    )
+    st.stop()
 
 st.header("📋 Catálogo de Artículos")
 st.caption(
