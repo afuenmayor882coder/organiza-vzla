@@ -20,6 +20,7 @@ def add_transaction(
     subcategory: str,
     description: str = "",
     source_bank: str = "",
+    account_code: str = "",
     user: str = "system",
 ) -> str:
     transaction_id = str(uuid.uuid4())
@@ -35,6 +36,7 @@ def add_transaction(
             "subcategory": subcategory,
             "description": description,
             "source_bank": source_bank,
+            "account_code": account_code,
             "created_at": datetime.now(timezone.utc),
         }
     )

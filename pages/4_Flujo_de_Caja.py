@@ -18,7 +18,9 @@ from db.finance_repo import (
     get_cash_balance,
     list_transactions,
 )
+from db.accounts_repo import get_account_display_options
 from utils.auth import current_org_id, current_user_email
+from utils.classifier import suggest_financial, confidence_icon
 from utils.constants import CURRENCIES, FLOW_DIRECTIONS, NIIF_CATEGORIES
 from utils.formatters import format_currency, format_date
 from utils.niif import classify_description
@@ -63,9 +65,12 @@ with tab_manual:
             help="Fecha en que ocurrió la transacción.",
         )
     with col_dir:
+        _sug_dir = st.session_state.pop("_sug_direction", None)
+        dir_idx = FLOW_DIRECTIONS.index(_sug_dir) if _sug_dir in FLOW_DIRECTIONS else 0
         direction = st.radio(
             "Dirección *",
             FLOW_DIRECTIONS,
+            index=dir_idx,
             horizontal=True,
             help="Ingreso = dinero que entra. Egreso = dinero que sale.",
         )
@@ -86,12 +91,18 @@ with tab_manual:
             help="Monto de la transacción.",
         )
 
-    # NIIF category → subcategory (cascading)
+    # NIIF category → subcategory (cascading, pre-fillable by smart suggestion)
+    _sug_niif_cat = st.session_state.pop("_sug_niif_cat", None)
+    _sug_niif_sub = st.session_state.pop("_sug_niif_sub", None)
+    niif_keys = list(NIIF_CATEGORIES.keys())
+    niif_default_idx = niif_keys.index(_sug_niif_cat) if _sug_niif_cat in niif_keys else 0
+
     col_niif, col_sub = st.columns(2)
     with col_niif:
         niif_category = st.selectbox(
             "Categoría NIIF *",
-            list(NIIF_CATEGORIES.keys()),
+            niif_keys,
+            index=niif_default_idx,
             help=(
                 "Operacion = actividades del día a día.  "
                 "Inversion = compra/venta de activos.  "
@@ -99,20 +110,65 @@ with tab_manual:
             ),
         )
     with col_sub:
+        sub_opts = NIIF_CATEGORIES[niif_category]
+        sub_default_idx = sub_opts.index(_sug_niif_sub) if _sug_niif_sub in sub_opts else 0
         subcategory = st.selectbox(
             "Subcategoría *",
-            NIIF_CATEGORIES[niif_category],
+            sub_opts,
+            index=sub_default_idx,
         )
 
     description = st.text_input(
         "Descripción *",
         placeholder="Ej: Pago de alquiler enero 2025",
         help="Describe brevemente en qué consiste este movimiento.",
+        key="tx_desc",
     )
-    source_bank = st.text_input(
-        "Banco / Cuenta de Origen",
-        placeholder="Opcional — ej: Banesco USD",
-    )
+
+    # Smart suggestion: auto-suggest NIIF category when user types a description
+    if description.strip():
+        fin_sug = suggest_financial(description.strip())
+        sug_cat = fin_sug["niif_category"]
+        sug_sub = fin_sug["subcategory"]
+        sug_dir = fin_sug["direction"]
+        sug_conf = fin_sug["confidence"]
+        if sug_conf >= 55:
+            st.caption(
+                f"💡 Sugerencia ({confidence_icon(sug_conf)} {sug_conf}% confianza): "
+                f"**{sug_dir}** · **{sug_cat}** → **{sug_sub}**"
+            )
+            if st.button("Aplicar sugerencia", key="apply_fin_sug"):
+                st.session_state["_sug_niif_cat"] = sug_cat
+                st.session_state["_sug_niif_sub"] = sug_sub
+                st.session_state["_sug_direction"] = sug_dir
+                st.rerun()
+
+    # Account selector — loads from the org's chart of accounts
+    account_options = get_account_display_options(org_id)
+    if account_options:
+        selected_account = st.selectbox(
+            "Cuenta Contable",
+            ["— Sin especificar —"] + account_options,
+            help=(
+                "Selecciona la cuenta del plan de cuentas NIIF a la que pertenece "
+                "este movimiento. El Admin puede gestionar las cuentas desde la "
+                "página Usuarios → Cuentas."
+            ),
+        )
+        account_code = (
+            selected_account.split(" — ")[0]
+            if selected_account != "— Sin especificar —"
+            else ""
+        )
+        source_bank = selected_account if selected_account != "— Sin especificar —" else ""
+    else:
+        st.info(
+            "ℹ️ Esta organización no tiene cuentas contables configuradas. "
+            "Un Admin puede agregarlas desde Usuarios → Cuentas.",
+            icon="ℹ️",
+        )
+        account_code = ""
+        source_bank = ""
 
     st.divider()
     if st.button("✅ Registrar Transacción", type="primary", use_container_width=True):
@@ -134,7 +190,8 @@ with tab_manual:
                     niif_category=niif_category,
                     subcategory=subcategory,
                     description=description.strip(),
-                    source_bank=source_bank.strip(),
+                    source_bank=source_bank,
+                    account_code=account_code,
                     user=user,
                 )
             st.success(
@@ -337,7 +394,7 @@ with st.expander("Ver historial", expanded=False):
                     "Tipo": r.get("direction", "—"),
                     "NIIF": r.get("niif_category", "—"),
                     "Subcategoría": r.get("subcategory", "—"),
-                    "Banco": r.get("source_bank", "—"),
+                    "Cuenta": r.get("source_bank") or r.get("account_code") or "—",
                 }
                 for r in recent_txs
             ],

@@ -4,6 +4,10 @@ setup_admin.py — One-time database seed script.
 Creates the initial organization ("La Posada de Jesús") and the first Admin
 user in MongoDB.  Safe to run multiple times — it will never create duplicates.
 
+This script respects the [app] mode setting in .streamlit/secrets.toml:
+  mode = "production"  →  writes to  organiza_vzla        (real data)
+  mode = "test"        →  writes to  organiza_vzla_test   (safe sandbox)
+
 ────────────────────────────────────────────────────────
  Prerequisites
 ────────────────────────────────────────────────────────
@@ -58,6 +62,29 @@ except ImportError:
 import bcrypt
 from pymongo import MongoClient
 
+# We import the seeder directly so this script doesn't depend on Streamlit
+from utils.constants import NIIF_CHART_OF_ACCOUNTS
+
+
+def _seed_accounts(db, org_id: str) -> int:
+    """Seed the default chart of accounts for an org (idempotent)."""
+    created = 0
+    for acct in NIIF_CHART_OF_ACCOUNTS:
+        if not db["chart_of_accounts"].find_one({"org_id": org_id, "account_code": acct["code"]}):
+            db["chart_of_accounts"].insert_one({
+                "account_id":   str(uuid.uuid4()),
+                "org_id":       org_id,
+                "account_code": acct["code"],
+                "account_name": acct["name"],
+                "account_type": acct["account_type"],
+                "direction":    acct["direction"],
+                "is_preset":    True,
+                "is_active":    True,
+                "created_at":   datetime.now(timezone.utc),
+            })
+            created += 1
+    return created
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 SECRETS_PATH = os.path.join(os.path.dirname(__file__), ".streamlit", "secrets.toml")
 
@@ -99,6 +126,10 @@ def main() -> None:
         print("❌ El archivo secrets.toml no tiene la clave [mongo] uri.")
         sys.exit(1)
 
+    app_mode = secrets.get("app", {}).get("mode", "production")
+    db_name = "organiza_vzla_test" if app_mode == "test" else "organiza_vzla"
+    print(f"🔧 Modo: {app_mode.upper()} → base de datos: «{db_name}»")
+
     # 2. Connect
     print("🔗 Conectando a MongoDB…")
     client = MongoClient(mongo_uri, serverSelectionTimeoutMS=8000)
@@ -108,7 +139,7 @@ def main() -> None:
         print(f"❌ No se pudo conectar a MongoDB: {exc}")
         sys.exit(1)
 
-    db = client["organiza_vzla"]
+    db = client[db_name]
 
     # 3. Organization
     existing_org = db["organizations"].find_one({"name": ORG_NAME})
@@ -125,6 +156,13 @@ def main() -> None:
             }
         )
         print(f"✅ Organización creada   : «{ORG_NAME}»")
+
+    # 3b. Seed default chart of accounts
+    n_accounts = _seed_accounts(db, org_id)
+    if n_accounts:
+        print(f"✅ Plan de cuentas creado: {n_accounts} cuentas NIIF")
+    else:
+        print("✅ Plan de cuentas ya existe")
 
     # 4. Admin user
     existing_user = db["users"].find_one({"email": ADMIN_EMAIL.lower()})

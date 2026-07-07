@@ -154,3 +154,43 @@ STAKEHOLDER_TYPES: list[str] = [
 # User roles
 # ---------------------------------------------------------------------------
 USER_ROLES: list[str] = ["Admin", "Usuario"]
+
+# ---------------------------------------------------------------------------
+# NIIF Chart of Accounts (Plan de Cuentas)
+# Preset accounts seeded for every new organization.
+# Fields: code, name, account_type, direction (Ingreso/Egreso/N/A)
+# ---------------------------------------------------------------------------
+NIIF_CHART_OF_ACCOUNTS: list[dict] = [
+    # Activos (Assets)
+    {"code": "1.1.01", "name": "Caja Chica",              "account_type": "Activo",  "direction": "N/A"},
+    {"code": "1.1.02", "name": "Banco Principal",          "account_type": "Activo",  "direction": "N/A"},
+    {"code": "1.1.03", "name": "Banco Secundario",         "account_type": "Activo",  "direction": "N/A"},
+    {"code": "1.1.04", "name": "Fondos por Depositar",     "account_type": "Activo",  "direction": "N/A"},
+    {"code": "1.2.01", "name": "Inventario de Donaciones", "account_type": "Activo",  "direction": "N/A"},
+    # Pasivos (Liabilities)
+    {"code": "2.1.01", "name": "Cuentas por Pagar",        "account_type": "Pasivo",  "direction": "Egreso"},
+    {"code": "2.1.02", "name": "Préstamos por Pagar",      "account_type": "Pasivo",  "direction": "Egreso"},
+    # Fondos (Funds / Equity)
+    {"code": "3.1.01", "name": "Fondo General",            "account_type": "Fondo",   "direction": "N/A"},
+    {"code": "3.1.02", "name": "Fondo de Emergencia",      "account_type": "Fondo",   "direction": "N/A"},
+    {"code": "3.1.03", "name": "Fondo de Alimentación",    "account_type": "Fondo",   "direction": "N/A"},
+    {"code": "3.1.04", "name": "Fondo de Salud",           "account_type": "Fondo",   "direction": "N/A"},
+    # Ingresos (Income)
+    {"code": "4.1.01", "name": "Donaciones en Efectivo",   "account_type": "Ingreso", "direction": "Ingreso"},
+    {"code": "4.1.02", "name": "Donaciones en Especie",    "account_type": "Ingreso", "direction": "Ingreso"},
+    {"code": "4.1.03", "name": "Subvenciones",             "account_type": "Ingreso", "direction": "Ingreso"},
+    {"code": "4.1.04", "name": "Otros Ingresos",           "account_type": "Ingreso", "direction": "Ingreso"},
+    # Egresos (Expenses)
+    {"code": "5.1.01", "name": "Compra de Suministros",    "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.02", "name": "Logística y Transporte",   "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.03", "name": "Salarios y Beneficios",    "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.04", "name": "Servicios Públicos",       "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.05", "name": "Alquiler",                 "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.06", "name": "Gastos Administrativos",   "account_type": "Egreso",  "direction": "Egreso"},
+    {"code": "5.1.07", "name": "Gastos de Programa",       "account_type": "Egreso",  "direction": "Egreso"},
+]
+
+# Lookup map: account code → account name (for display in dropdowns)
+ACCOUNT_CODE_TO_NAME: dict[str, str] = {
+    a["code"]: f"{a['code']} — {a['name']}" for a in NIIF_CHART_OF_ACCOUNTS
+}

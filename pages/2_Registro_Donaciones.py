@@ -1,9 +1,10 @@
 """
 pages/2_Registro_Donaciones.py — Donation Entry (inventory IN).
 
-Two modes (tabs):
+Three modes (tabs):
   1. Entrada Individual — one item at a time.
   2. Entrada en Lote   — spreadsheet grid for multiple items at once.
+  3. Entrada Rápida    — type a free-text description; smart auto-fill.
 """
 
 from datetime import date, datetime, timezone
@@ -14,6 +15,7 @@ import streamlit as st
 from db.donations_repo import add_donation, list_donations
 from db.inventory_repo import add_catalog_item, list_catalog_items, upsert_stock
 from utils.auth import current_org_id, current_user_email
+from utils.classifier import suggest_donation, confidence_icon
 from utils.constants import (
     CATEGORIES_WITH_EXPIRATION,
     DONATION_CATEGORIES,
@@ -28,11 +30,13 @@ user = current_user_email() or "system"
 st.header("📥 Registro de Donaciones")
 st.caption("Registra los artículos que recibe la organización (inventario entrante).")
 
-# ── Load catalog once (used in both tabs and the history table) ───────────────
+# ── Load catalog once (used in all tabs and the history table) ────────────────
 all_catalog = list_catalog_items(org_id)
 catalog_map = {i["item_id"]: i["name"] for i in all_catalog}
 
-tab_single, tab_batch = st.tabs(["📋 Entrada Individual", "📦 Entrada en Lote"])
+tab_single, tab_batch, tab_quick = st.tabs(
+    ["📋 Entrada Individual", "📦 Entrada en Lote", "⚡ Entrada Rápida"]
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  TAB 1 — SINGLE ENTRY
@@ -344,6 +348,185 @@ with tab_batch:
                 st.success(f"✅ {saved} donación(es) registrada(s) exitosamente.")
             for e in errors_found:
                 st.error(e)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TAB 3 — QUICK ENTRY (auto-fill from free text)
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_quick:
+    st.subheader("Entrada Rápida")
+    st.caption(
+        "Escribe una descripción en lenguaje natural y el sistema intentará "
+        "rellenar los campos automáticamente. Puedes corregir cualquier campo "
+        "antes de guardar."
+    )
+    st.info(
+        "**Ejemplos:**\n"
+        "- «20 cajas de arroz del Banco de Alimentos»\n"
+        "- «50 sacos de harina donados por Cruz Roja»\n"
+        "- «12 frazadas de ACNUR»",
+        icon="💡",
+    )
+
+    quick_text = st.text_area(
+        "Describe la donación *",
+        placeholder="Ej: 30 paquetes de acetaminofen de Farmavida",
+        height=90,
+        key="q_text",
+    )
+
+    if st.button("🔍 Analizar Descripción", use_container_width=True, key="q_analyze"):
+        if quick_text.strip():
+            with st.spinner("Analizando…"):
+                suggestion = suggest_donation(quick_text.strip(), all_catalog)
+            st.session_state["q_suggestion"] = suggestion
+        else:
+            st.warning("Escribe una descripción primero.")
+
+    if "q_suggestion" in st.session_state:
+        sug = st.session_state["q_suggestion"]
+        conf = sug.get("confidence", {})
+
+        st.divider()
+        st.markdown("**Resultados del análisis — revisa y ajusta si es necesario:**")
+
+        col_item, col_cat = st.columns(2)
+        with col_item:
+            # Pre-select matched item or allow free entry
+            cat_items_q = [
+                i for i in all_catalog if i.get("is_active", True)
+            ]
+            CREATE_NEW_Q = "➕ Crear nuevo artículo"
+            item_opts_q = [i["name"] for i in cat_items_q] + [CREATE_NEW_Q]
+            default_item_idx = 0
+            if sug["item_id"]:
+                matched_names = [i["name"] for i in cat_items_q]
+                if sug["item_name"] in matched_names:
+                    default_item_idx = matched_names.index(sug["item_name"])
+            q_item_sel = st.selectbox(
+                f"Artículo  {confidence_icon(conf.get('item', 0))}",
+                item_opts_q,
+                index=default_item_idx,
+                key="q_item_sel",
+            )
+        with col_cat:
+            q_cat = st.selectbox(
+                f"Categoría  {confidence_icon(conf.get('category', 0))}",
+                list(DONATION_CATEGORIES.keys()),
+                index=list(DONATION_CATEGORIES.keys()).index(sug["category"])
+                if sug["category"] in DONATION_CATEGORIES else 0,
+                key="q_cat",
+            )
+
+        col_sub, col_pkg = st.columns(2)
+        with col_sub:
+            q_sub = st.selectbox(
+                "Subcategoría",
+                DONATION_CATEGORIES[q_cat],
+                key="q_sub",
+            )
+        with col_pkg:
+            pkg_idx = PACKAGING_FORMATS.index(sug["packaging"]) if sug["packaging"] in PACKAGING_FORMATS else 0
+            q_pkg = st.selectbox(
+                f"Empaque  {confidence_icon(conf.get('packaging', 0))}",
+                PACKAGING_FORMATS,
+                index=pkg_idx,
+                key="q_pkg",
+            )
+
+        col_qty, col_donor = st.columns(2)
+        with col_qty:
+            q_qty = st.number_input(
+                f"Cantidad  {confidence_icon(conf.get('quantity', 0))}",
+                min_value=1,
+                step=1,
+                value=max(1, sug["quantity"]),
+                key="q_qty",
+            )
+        with col_donor:
+            q_donor = st.text_input(
+                f"Donante  {confidence_icon(conf.get('donor', 0))}",
+                value=sug["donor_name"],
+                key="q_donor",
+                placeholder="Nombre del donante",
+            )
+
+        q_new_name = ""
+        if q_item_sel == CREATE_NEW_Q:
+            q_new_name = st.text_input(
+                "Nombre del nuevo artículo *",
+                value=sug["item_name"] if not sug["item_id"] else "",
+                key="q_new_name",
+            )
+
+        # Expiration date (optional)
+        q_exp_date: datetime | None = None
+        if q_cat in CATEGORIES_WITH_EXPIRATION:
+            q_show_exp = st.checkbox("Registrar fecha de vencimiento", key="q_show_exp")
+            if q_show_exp:
+                q_exp_val = st.date_input("Fecha de Vencimiento", min_value=date.today(), key="q_exp_date")
+                q_exp_date = datetime(q_exp_val.year, q_exp_val.month, q_exp_val.day, tzinfo=timezone.utc)
+
+        q_notes = st.text_area("Notas (opcional)", height=60, key="q_notes")
+
+        st.divider()
+        if st.button("✅ Registrar Donación", type="primary", use_container_width=True, key="q_submit"):
+            is_new = q_item_sel == CREATE_NEW_Q
+            actual_name = q_new_name.strip() if is_new else q_item_sel
+            errors = validate_donation_form(q_cat, actual_name, int(q_qty), q_donor)
+            if is_new and not q_new_name.strip():
+                errors.insert(0, "Escribe el nombre del nuevo artículo.")
+
+            if errors:
+                for e in errors:
+                    st.error(e)
+            else:
+                with st.spinner("Guardando donación…"):
+                    existing = next((i for i in cat_items_q if i["name"] == actual_name), None)
+                    if existing:
+                        q_item_id = existing["item_id"]
+                    else:
+                        q_item_id = add_catalog_item(
+                            org_id=org_id,
+                            name=actual_name,
+                            category=q_cat,
+                            subcategory=q_sub,
+                            default_packaging=q_pkg,
+                            tracks_expiration=q_cat in CATEGORIES_WITH_EXPIRATION,
+                            user=user,
+                        )
+
+                    add_donation(
+                        org_id=org_id,
+                        item_id=q_item_id,
+                        category=q_cat,
+                        subcategory=q_sub,
+                        packaging=q_pkg,
+                        quantity=int(q_qty),
+                        donor_name=q_donor.strip(),
+                        donor_org="",
+                        expiration_date=q_exp_date,
+                        notes=q_notes.strip(),
+                        user=user,
+                    )
+                    upsert_stock(
+                        org_id=org_id,
+                        item_id=q_item_id,
+                        name=actual_name,
+                        category=q_cat,
+                        subcategory=q_sub,
+                        packaging=q_pkg,
+                        quantity_delta=int(q_qty),
+                        expiration_date=q_exp_date,
+                        user=user,
+                    )
+
+                del st.session_state["q_suggestion"]
+                st.success(
+                    f"✅ Donación registrada: **{int(q_qty)} {q_pkg}(s)** de «{actual_name}» "
+                    f"— Donante: {q_donor.strip() or '—'}."
+                )
+                st.rerun()
+
 
 # ── Recent donations history ───────────────────────────────────────────────────
 st.divider()

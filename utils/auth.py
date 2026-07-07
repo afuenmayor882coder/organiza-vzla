@@ -4,7 +4,7 @@ Uses bcrypt password verification from db.auth_repo.
 """
 
 import streamlit as st
-from db.auth_repo import get_user_by_email, verify_password, get_organization
+from db.auth_repo import get_user_by_email, verify_password, get_organization, get_org_settings
 
 
 def _init_session() -> None:
@@ -16,6 +16,7 @@ def _init_session() -> None:
         "org_id": None,
         "org_name": None,
         "user_id": None,
+        "org_settings": {},
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -28,6 +29,7 @@ def login(email: str, password: str) -> bool:
     user = get_user_by_email(email)
     if user and verify_password(password, user["password_hash"]):
         org = get_organization(user["org_id"])
+        settings = get_org_settings(user["org_id"])
         st.session_state["authenticated"] = True
         st.session_state["user_email"] = user["email"]
         st.session_state["user_name"] = user["name"]
@@ -35,6 +37,7 @@ def login(email: str, password: str) -> bool:
         st.session_state["org_id"] = user["org_id"]
         st.session_state["org_name"] = org["name"] if org else user["org_id"]
         st.session_state["user_id"] = user["user_id"]
+        st.session_state["org_settings"] = settings
         return True
     return False
 
@@ -42,7 +45,7 @@ def login(email: str, password: str) -> bool:
 def logout() -> None:
     for key in [
         "authenticated", "user_email", "user_name", "user_role",
-        "org_id", "org_name", "user_id",
+        "org_id", "org_name", "user_id", "org_settings",
     ]:
         st.session_state[key] = None
     st.session_state["authenticated"] = False
@@ -72,3 +75,16 @@ def current_user_email() -> str | None:
 
 def current_user_name() -> str | None:
     return st.session_state.get("user_name")
+
+
+def current_org_settings() -> dict:
+    """Return the current org's settings dict (loaded at login)."""
+    return st.session_state.get("org_settings") or {}
+
+
+def reload_org_settings() -> None:
+    """Re-fetch org settings from DB and refresh session state (call after saving settings)."""
+    org_id = current_org_id()
+    if org_id:
+        from db.auth_repo import get_org_settings as _get
+        st.session_state["org_settings"] = _get(org_id)

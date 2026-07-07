@@ -15,16 +15,51 @@ from db.audit_repo import log_action
 # Organizations
 # ---------------------------------------------------------------------------
 
+_DEFAULT_SETTINGS = {
+    "display_name": "",
+    "logo_url": "",
+    "primary_color": "#0066CC",
+    "secondary_color": "#E8F0FE",
+    "welcome_message": "",
+    "currency_default": "USD",
+    "low_stock_threshold": 10,
+    "expiration_warning_days": 30,
+}
+
+
 def create_organization(name: str) -> str:
     org_id = str(uuid.uuid4())
     get_db()["organizations"].insert_one(
-        {"org_id": org_id, "name": name, "created_at": datetime.now(timezone.utc)}
+        {
+            "org_id": org_id,
+            "name": name,
+            "created_at": datetime.now(timezone.utc),
+            "settings": _DEFAULT_SETTINGS.copy(),
+        }
     )
     return org_id
 
 
 def get_organization(org_id: str) -> dict | None:
     return get_db()["organizations"].find_one({"org_id": org_id}, {"_id": 0})
+
+
+def get_org_settings(org_id: str) -> dict:
+    """Return the org's settings dict, filling in defaults for missing keys."""
+    org = get_db()["organizations"].find_one({"org_id": org_id}, {"_id": 0, "settings": 1})
+    stored = (org or {}).get("settings", {})
+    # Merge stored values over defaults so missing keys get a fallback
+    result = _DEFAULT_SETTINGS.copy()
+    result.update(stored)
+    return result
+
+
+def update_org_settings(org_id: str, settings: dict) -> None:
+    """Persist updated settings fields to the organization document."""
+    get_db()["organizations"].update_one(
+        {"org_id": org_id},
+        {"$set": {"settings": settings, "settings_updated_at": datetime.now(timezone.utc)}},
+    )
 
 
 def list_organizations() -> list[dict]:

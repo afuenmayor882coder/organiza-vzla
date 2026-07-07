@@ -6,3 +6,4 @@ plotly
 openpyxl
 bcrypt
 toml
+rapidfuzz

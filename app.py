@@ -16,7 +16,10 @@ from utils.auth import (
     is_admin,
     current_user_name,
     current_org_name,
+    current_org_settings,
 )
+from db.connection import is_test_mode
+from utils.theme import apply_org_theme, get_role_badge_color
 
 st.set_page_config(
     page_title="Organiza Vzla",
@@ -92,6 +95,20 @@ def _show_login_page() -> None:
 if not require_auth():
     _show_login_page()
 
+# ── Test mode banner (shown on every page when using the test database) ────────
+
+if is_test_mode():
+    st.warning(
+        "⚠️ **MODO DE PRUEBA** — Estás usando la base de datos de prueba "
+        "(`organiza_vzla_test`). Los datos aquí **no afectan** la base de datos "
+        "de producción. Para volver al modo real, cambia `mode = \"production\"` "
+        "en `.streamlit/secrets.toml`.",
+        icon="🧪",
+    )
+
+# Apply organization brand colors on every page render
+apply_org_theme()
+
 
 # ── Sidebar (rendered on every page once authenticated) ───────────────────────
 
@@ -107,7 +124,7 @@ with st.sidebar:
     if org:
         st.caption(f"🏢 {org}")
     if role:
-        badge_color = "#0066CC" if role == "Admin" else "#555555"
+        badge_color = get_role_badge_color(role, current_org_settings())
         st.markdown(
             f'<span style="background:{badge_color};color:#fff;padding:2px 10px;'
             f'border-radius:12px;font-size:0.78rem;font-weight:600;">{role}</span>',
