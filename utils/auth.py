@@ -4,7 +4,7 @@ Uses bcrypt password verification from db.auth_repo.
 """
 
 import streamlit as st
-from db.auth_repo import get_user_by_email, verify_password
+from db.auth_repo import get_user_by_email, verify_password, get_organization
 
 
 def _init_session() -> None:
@@ -14,6 +14,7 @@ def _init_session() -> None:
         "user_name": None,
         "user_role": None,
         "org_id": None,
+        "org_name": None,
         "user_id": None,
     }
     for key, val in defaults.items():
@@ -26,18 +27,23 @@ def login(email: str, password: str) -> bool:
     _init_session()
     user = get_user_by_email(email)
     if user and verify_password(password, user["password_hash"]):
+        org = get_organization(user["org_id"])
         st.session_state["authenticated"] = True
         st.session_state["user_email"] = user["email"]
         st.session_state["user_name"] = user["name"]
         st.session_state["user_role"] = user["role"]
         st.session_state["org_id"] = user["org_id"]
+        st.session_state["org_name"] = org["name"] if org else user["org_id"]
         st.session_state["user_id"] = user["user_id"]
         return True
     return False
 
 
 def logout() -> None:
-    for key in ["authenticated", "user_email", "user_name", "user_role", "org_id", "user_id"]:
+    for key in [
+        "authenticated", "user_email", "user_name", "user_role",
+        "org_id", "org_name", "user_id",
+    ]:
         st.session_state[key] = None
     st.session_state["authenticated"] = False
 
@@ -54,6 +60,10 @@ def is_admin() -> bool:
 
 def current_org_id() -> str | None:
     return st.session_state.get("org_id")
+
+
+def current_org_name() -> str | None:
+    return st.session_state.get("org_name")
 
 
 def current_user_email() -> str | None:
