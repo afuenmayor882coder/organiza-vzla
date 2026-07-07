@@ -1,0 +1,7 @@
+streamlit
+streamlit-authenticator
+pymongo
+dnspython
+pandas
+plotly
+openpyxl

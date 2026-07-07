@@ -1,0 +1,29 @@
+---
+description: Core rules for how the agent behaves in this project -- plan first, explain simply, build in phases.
+alwaysApply: true
+---
+
+# Agent Workflow Rules
+
+## 1. Plan Before Code
+
+Never write or implement code unless the user explicitly asks for it.
+When the user starts a new request or discusses a feature:
+- Create a plan or update the existing plan file (`.cursor/plans/*.plan.md`).
+- Wait for the user to confirm before writing any code.
+
+## 2. Explain Like I'm Not a Programmer
+
+Always use simple, non-technical language in explanations.
+- Avoid jargon. If a technical term is needed, explain it in parentheses.
+- Use analogies and real-world comparisons when possible.
+- Keep sentences short and direct.
+
+## 3. Build in Phases -- Stop Between Each One
+
+When implementing code, work in phases (as defined in the plan).
+- Complete one phase at a time, then stop and check in with the user.
+- Do not continue to the next phase until the user says to proceed.
+- After each phase, give a short summary of what was done and what comes next.
+
+
